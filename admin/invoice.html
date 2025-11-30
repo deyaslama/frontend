@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عرض الفاتورة – لوحة التحكم</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+*{
+  margin:0;padding:0;
+  box-sizing:border-box;
+  font-family:'Cairo',sans-serif;
+}
+body{
+  background:#f4f7fb;
+  color:#333;
+  padding:20px;
+}
+
+/* ===== صندوق الفاتورة ===== */
+.invoice-container{
+  max-width:850px;
+  margin:auto;
+  background:#fff;
+  padding:25px;
+  border-radius:12px;
+  box-shadow:0 3px 14px rgba(0,0,0,0.08);
+}
+
+/* العنوان */
+.invoice-title{
+  text-align:center;
+  font-size:26px;
+  font-weight:800;
+  color:#006b6a;
+  margin-bottom:10px;
+}
+
+.invoice-sub{
+  text-align:center;
+  font-size:14px;
+  color:#777;
+  margin-bottom:20px;
+}
+
+/* معلومات العميل */
+.info-box{
+  margin-bottom:20px;
+  padding:15px;
+  background:#f8f8fa;
+  border-radius:10px;
+  border-right:4px solid #006b6a;
+}
+
+.info-row{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:8px;
+  font-size:15px;
+}
+
+/* جدول الأصناف */
+.items-table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:20px;
+}
+
+.items-table th{
+  background:#006b6a;
+  color:#fff;
+  padding:12px;
+  font-size:14px;
+}
+
+.items-table td{
+  padding:12px;
+  background:#fff;
+  border-bottom:1px solid #eee;
+  font-size:14px;
+  text-align:center;
+}
+
+/* صندوق الإجمالي */
+.total-box{
+  margin-top:25px;
+  padding:20px;
+  background:#f8f8fa;
+  border-radius:10px;
+}
+
+.total-row{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:10px;
+  font-size:16px;
+  font-weight:600;
+}
+
+.total-final{
+  color:#d60000;
+  font-size:20px;
+  font-weight:800;
+}
+
+/* الأزرار */
+.buttons{
+  margin-top:25px;
+  display:flex;
+  gap:12px;
+}
+
+.btn{
+  flex:1;
+  padding:12px;
+  text-align:center;
+  border:none;
+  border-radius:10px;
+  font-size:15px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.print-btn{
+  background:#8a004a;
+  color:#fff;
+}
+
+.status-btn{
+  background:#006b6a;
+  color:#fff;
+}
+
+.delivery-btn{
+  background:#009688;
+  color:#fff;
+}
+
+.done-btn{
+  background:#4CAF50;
+  color:#fff;
+}
+
+/* للطباعة */
+@media print {
+  .buttons { display:none; }
+  body { background:#fff; }
+  .invoice-container{
+    box-shadow:none;
+    margin:0;
+    padding:0;
+  }
+}
+</style>
+
+</head>
+<body>
+
+<div class="invoice-container">
+
+  <div class="invoice-title">فاتورة الطلب</div>
+  <div class="invoice-sub">متجر جمالك – لوحة الإدارة</div>
+
+  <!-- معلومات العميل -->
+  <div class="info-box" id="customerInfo">
+    <!-- يتم ملؤها بالـ JS -->
+  </div>
+
+  <!-- جدول الأصناف -->
+  <table class="items-table" id="itemsTable">
+    <thead>
+      <tr>
+        <th>الصنف</th>
+        <th>السعر قبل الضريبة</th>
+        <th>الكمية</th>
+        <th>السعر بعد الضريبة</th>
+        <th>الإجمالي</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- الإجمالي -->
+  <div class="total-box" id="totalsBox">
+    <!-- يتم تعبئته بالـ JS -->
+  </div>
+
+  <!-- الأزرار -->
+  <div class="buttons">
+    <button class="btn print-btn" onclick="window.print()">🖨 طباعة الفاتورة</button>
+    <button id="statusBtn" class="btn status-btn">قيد التجهيز</button>
+    <button id="deliveryBtn" class="btn delivery-btn" style="display:none;">🚚 تم الخروج للتوصيل</button>
+    <button id="doneBtn" class="btn done-btn" style="display:none;">✔ مكتمل</button>
+  </div>
+
+</div>
+
+<!-- JavaScript سيتم إضافته في المرحلة 2 -->
+<script>
+// ======================= تحميل الطلب ======================= //
+let orders = JSON.parse(localStorage.getItem("orders") || "[]");
+let invoiceId = localStorage.getItem("invoice_id");
+
+if (!invoiceId) {
+  alert("لا يوجد فاتورة محددة");
+  window.location.href = "orders.html";
+}
+
+let order = orders.find(o => o.id == invoiceId);
+
+if (!order) {
+  alert("خطأ: لم يتم العثور على الطلب");
+  window.location.href = "orders.html";
+}
+
+// إذا لا يوجد حالة → نضع "new"
+if (!order.status) {
+  order.status = "new";
+  localStorage.setItem("orders", JSON.stringify(orders));
+}
+
+// ======================= تحويل الحالة إلى نص عربي ======================= //
+function statusText(st) {
+  switch (st) {
+    case "new": return "جديد";
+    case "processing": return "قيد التجهيز";
+    case "delivery": return "خرج للتوصيل";
+    case "completed": return "مكتمل";
+    default: return "جديد";
+  }
+}
+
+// ======================= عرض بيانات العميل ======================= //
+function renderCustomerInfo() {
+  document.getElementById("customerInfo").innerHTML = `
+    <div class="info-row"><span><b>رقم الطلب:</b></span> <span>#${order.id}</span></div>
+    <div class="info-row"><span><b>اسم العميل:</b></span> <span>${order.customer_name}</span></div>
+    <div class="info-row"><span><b>رقم الجوال:</b></span> <span>${order.customer_phone}</span></div>
+    <div class="info-row"><span><b>تاريخ الطلب:</b></span> <span>${order.date}</span></div>
+    <div class="info-row"><span><b>حالة الطلب:</b></span> 
+      <span id="currentStatus" style="color:#006b6a;font-weight:700;">
+        ${statusText(order.status)}
+      </span>
+    </div>
+  `;
+}
+
+// ======================= رسم عناصر الفاتورة ======================= //
+function renderItems() {
+  let tbody = document.querySelector("#itemsTable tbody");
+  tbody.innerHTML = "";
+
+  order.items.forEach(item => {
+    let qty = item.qty || 1;
+    let priceBefore = Number(item.base_price);
+    let priceAfter = priceBefore * 1.15; // بعد الضريبة
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${item.name}</td>
+        <td>${priceBefore.toFixed(2)} ر.س</td>
+        <td>${qty}</td>
+        <td>${priceAfter.toFixed(2)} ر.س</td>
+        <td>${(priceAfter * qty).toFixed(2)} ر.س</td>
+      </tr>
+    `;
+  });
+}
+
+// ======================= رسم الإجمالي ======================= //
+function renderTotals() {
+  let subtotal = 0;
+
+  order.items.forEach(i => {
+    let qty = i.qty || 1;
+    subtotal += (i.base_price * 1.15) * qty;
+  });
+
+  let vat = subtotal * 0.15;
+  let total = subtotal + vat;
+
+  // حفظ الإجمالي الحقيقي داخل الطلب
+  order.total = total.toFixed(2);
+  localStorage.setItem("orders", JSON.stringify(orders));
+
+  document.getElementById("totalsBox").innerHTML = `
+    <div class="total-row"><span>عدد الأصناف:</span> <span>${order.items.length}</span></div>
+    <div class="total-row"><span>الإجمالي قبل الضريبة:</span> <span>${subtotal.toFixed(2)} ر.س</span></div>
+    <div class="total-row"><span>قيمة الضريبة (15٪):</span> <span>${vat.toFixed(2)} ر.س</span></div>
+    <div class="total-row total-final"><span>الإجمالي النهائي:</span> <span>${total.toFixed(2)} ر.س</span></div>
+  `;
+}
+
+// ======================= تحديث الحالة ======================= //
+function updateStatus(newStatus) {
+  order.status = newStatus;
+  localStorage.setItem("orders", JSON.stringify(orders));
+
+  document.getElementById("currentStatus").innerText = statusText(newStatus);
+
+  setupButtons();
+  alert("✔ تم تحديث حالة الطلب");
+}
+
+// ======================= تخصيص الأزرار حسب الحالة ======================= //
+function setupButtons() {
+  let st = order.status;
+
+  document.getElementById("statusBtn").style.display = "none";
+  document.getElementById("deliveryBtn").style.display = "none";
+  document.getElementById("doneBtn").style.display = "none";
+
+  if (st === "new") {
+    statusBtn.style.display = "block"; // قيد التجهيز
+  } else if (st === "processing") {
+    deliveryBtn.style.display = "block"; // خرج للتوصيل
+  } else if (st === "delivery") {
+    doneBtn.style.display = "block"; // مكتمل
+  }
+}
+
+// ======================= ربط أزرار تغيير الحالة ======================= //
+document.getElementById("statusBtn").onclick = () => updateStatus("processing");
+document.getElementById("deliveryBtn").onclick = () => updateStatus("delivery");
+document.getElementById("doneBtn").onclick = () => updateStatus("completed");
+
+// ======================= تشغيل الصفحة ======================= //
+renderCustomerInfo();
+renderItems();
+renderTotals();
+setupButtons();
+</script>
+
+
+</body>
+</html>
